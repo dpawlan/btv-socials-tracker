@@ -1,0 +1,25 @@
+{
+  "name": "btv-socials-tracker",
+  "version": "1.0.0",
+  "description": "A bot that monitors TikTok for mentions of @bracketology.tv, extracts hashtags from those posts, and logs them to Slack and Google Sheets.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test.js",
+    "install-playwright": "npx playwright install chromium"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "apify-client": "^2.17.0",
+    "axios": "^1.12.2",
+    "cheerio": "^1.1.2",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "googleapis": "^160.0.0",
+    "node-cron": "^4.2.1",
+    "playwright": "^1.55.0",
+    "sqlite3": "^5.1.7"
+  }
+}
