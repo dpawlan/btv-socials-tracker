@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/check-mentions.js": {
+      "maxDuration": 60
+    }
+  }
+}
