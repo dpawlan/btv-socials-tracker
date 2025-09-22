@@ -9,8 +9,15 @@ class GoogleSheetsLogger {
     this.auth = null;
     this.sheets = null;
 
-    if (jsonPath && fs.existsSync(jsonPath)) {
-      this.initializeAuth(jsonPath);
+    // Handle both file path and JSON string (for Vercel)
+    if (jsonPath) {
+      if (typeof jsonPath === 'string' && jsonPath.startsWith('{')) {
+        // It's a JSON string from environment variable
+        this.initializeAuthFromJson(jsonPath);
+      } else if (fs.existsSync(jsonPath)) {
+        // It's a file path
+        this.initializeAuth(jsonPath);
+      }
     }
   }
 
@@ -60,6 +67,22 @@ class GoogleSheetsLogger {
       console.log('Google Sheets authentication initialized');
     } catch (error) {
       console.error('Failed to initialize Google Sheets:', error.message);
+    }
+  }
+
+  initializeAuthFromJson(jsonString) {
+    try {
+      const credentials = JSON.parse(jsonString);
+
+      this.auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
+      });
+
+      this.sheets = google.sheets({ version: 'v4', auth: this.auth });
+      console.log('Google Sheets authentication initialized from JSON string');
+    } catch (error) {
+      console.error('Failed to initialize Google Sheets from JSON:', error.message);
     }
   }
 

@@ -1,5 +1,4 @@
 const TikTokScraperRapidAPI = require('../src/tiktok-scraper-rapidapi');
-const { initDatabase, saveMention } = require('../src/database');
 const SlackNotifier = require('../src/slack-notifier');
 const GoogleSheetsLogger = require('../src/google-sheets');
 
@@ -9,6 +8,9 @@ const GOOGLE_SA_JSON = process.env.GOOGLE_SA_JSON;
 const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID;
 const SHEET_NAME = process.env.SHEET_NAME || 'Mentions';
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
+
+// Store processed IDs in memory (resets on each deploy)
+const processedIds = new Set();
 
 module.exports = async (req, res) => {
   // Only allow POST requests
@@ -24,43 +26,34 @@ module.exports = async (req, res) => {
     const slack = new SlackNotifier(SLACK_WEBHOOK_URL);
     const sheets = new GoogleSheetsLogger(GOOGLE_SA_JSON, GOOGLE_SHEET_ID, SHEET_NAME);
 
-    await initDatabase();
-
     // Search for mentions
     const mentions = await scraper.searchMentions();
     console.log(`Found ${mentions.length} potential mentions`);
 
-    let newMentions = 0;
+    const newMentions = [];
 
     for (const mention of mentions) {
-      try {
-        await saveMention(mention);
+      // Check if we've already processed this mention
+      if (!processedIds.has(mention.post_id)) {
+        processedIds.add(mention.post_id);
+        newMentions.push(mention);
 
-        // If save succeeded, it's a new mention
+        // Send to Slack and Google Sheets
         await slack.sendMention(mention);
         await sheets.logMention(mention);
-        newMentions++;
 
         console.log(`New mention from @${mention.username}`);
-      } catch (error) {
-        if (error.message.includes('UNIQUE constraint')) {
-          // Already exists, skip
-          continue;
-        } else {
-          console.error('Error processing mention:', error.message);
-        }
       }
     }
 
-    if (newMentions > 0) {
+    if (newMentions.length > 0) {
       // Send summary to Slack
-      const newMentionsList = mentions.slice(0, newMentions);
-      await slack.sendSummary(newMentionsList);
+      await slack.sendSummary(newMentions);
     }
 
     return res.status(200).json({
       success: true,
-      message: `Processed ${newMentions} new mentions out of ${mentions.length} found`,
+      message: `Processed ${newMentions.length} new mentions out of ${mentions.length} found`,
       timestamp: new Date().toISOString()
     });
 
