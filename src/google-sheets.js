@@ -164,6 +164,43 @@ class GoogleSheetsLogger {
     }
   }
 
+  async getExistingPostIds() {
+    const existingIds = new Set();
+
+    if (!this.sheets) {
+      console.log('Google Sheets not configured, returning empty set');
+      return existingIds;
+    }
+
+    try {
+      // Get all rows from the sheet
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.sheetId,
+        range: `${this.sheetName}!K:K`, // Column K contains post_id
+      });
+
+      const rows = response.data.values || [];
+
+      // Skip header row and add all post IDs to the set
+      for (let i = 1; i < rows.length; i++) {
+        if (rows[i] && rows[i][0]) {
+          existingIds.add(rows[i][0]);
+        }
+      }
+
+      console.log(`Loaded ${existingIds.size} existing post IDs from Google Sheets`);
+    } catch (error) {
+      // Sheet might not exist yet, that's okay
+      if (error.message.includes('Unable to parse range')) {
+        console.log('Sheet does not exist yet, will be created on first mention');
+      } else {
+        console.error('Failed to get existing IDs from Google Sheets:', error.message);
+      }
+    }
+
+    return existingIds;
+  }
+
   async logBatch(mentions) {
     if (!this.sheets || mentions.length === 0) return;
 

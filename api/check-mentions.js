@@ -9,9 +9,6 @@ const GOOGLE_SHEET_ID = process.env.GOOGLE_SHEET_ID;
 const SHEET_NAME = process.env.SHEET_NAME || 'Mentions';
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 
-// Store processed IDs in memory (resets on each deploy)
-const processedIds = new Set();
-
 module.exports = async (req, res) => {
   // Only allow POST requests
   if (req.method !== 'POST' && req.method !== 'GET') {
@@ -26,16 +23,19 @@ module.exports = async (req, res) => {
     const slack = new SlackNotifier(SLACK_WEBHOOK_URL);
     const sheets = new GoogleSheetsLogger(GOOGLE_SA_JSON, GOOGLE_SHEET_ID, SHEET_NAME);
 
+    // Get existing post IDs from Google Sheets to prevent duplicates
+    const existingIds = await sheets.getExistingPostIds();
+    console.log(`Found ${existingIds.size} existing mentions in Google Sheets`);
+
     // Search for mentions
     const mentions = await scraper.searchMentions();
-    console.log(`Found ${mentions.length} potential mentions`);
+    console.log(`Found ${mentions.length} potential mentions from TikTok`);
 
     const newMentions = [];
 
     for (const mention of mentions) {
-      // Check if we've already processed this mention
-      if (!processedIds.has(mention.post_id)) {
-        processedIds.add(mention.post_id);
+      // Check if this mention already exists in Google Sheets
+      if (!existingIds.has(mention.post_id)) {
         newMentions.push(mention);
 
         // Send to Slack and Google Sheets
@@ -54,6 +54,9 @@ module.exports = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `Processed ${newMentions.length} new mentions out of ${mentions.length} found`,
+      newMentions: newMentions.length,
+      totalFound: mentions.length,
+      existingInSheets: existingIds.size,
       timestamp: new Date().toISOString()
     });
 
